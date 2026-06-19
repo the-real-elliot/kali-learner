@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Kali Academy"
+version = "1.0.0"
+id = "artifacts/kali-academy"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 26046
+
+[services.development]
+run = "pnpm --filter @workspace/kali-academy run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/kali-academy", "run", "build" ]
+publicDir = "artifacts/kali-academy/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "26046"
+BASE_PATH = "/"

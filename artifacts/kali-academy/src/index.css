@@ -1,0 +1,189 @@
+@import url("https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&display=swap");
+@import "tailwindcss";
+@import "tw-animate-css";
+@plugin "@tailwindcss/typography";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-card-border: hsl(var(--card-border));
+
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-popover-border: hsl(var(--popover-border));
+
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-primary-border: var(--primary-border);
+
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-secondary-border: var(--secondary-border);
+
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-muted-border: var(--muted-border);
+
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-accent-border: var(--accent-border);
+
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-destructive-border: var(--destructive-border);
+
+  --color-sidebar: hsl(var(--sidebar));
+  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
+  --color-sidebar-border: hsl(var(--sidebar-border));
+  --color-sidebar-primary: hsl(var(--sidebar-primary));
+  --color-sidebar-primary-foreground: hsl(var(--sidebar-primary-foreground));
+  --color-sidebar-primary-border: var(--sidebar-primary-border);
+  --color-sidebar-accent: hsl(var(--sidebar-accent));
+  --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
+  --color-sidebar-accent-border: var(--sidebar-accent-border);
+  --color-sidebar-ring: hsl(var(--sidebar-ring));
+
+  --font-sans: 'Fira Code', monospace;
+  --font-serif: 'Fira Code', monospace;
+  --font-mono: 'Fira Code', monospace;
+  
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+:root {
+  --background: 0 0% 4%;
+  --foreground: 120 100% 40%;
+  
+  --border: 120 100% 15%;
+  --input: 120 100% 10%;
+  --ring: 120 100% 40%;
+  
+  --card: 0 0% 6%;
+  --card-foreground: 120 100% 40%;
+  --card-border: 120 100% 20%;
+  
+  --popover: 0 0% 4%;
+  --popover-foreground: 120 100% 40%;
+  --popover-border: 120 100% 20%;
+  
+  --primary: 120 100% 40%;
+  --primary-foreground: 0 0% 0%;
+  
+  --secondary: 120 100% 15%;
+  --secondary-foreground: 120 100% 40%;
+  
+  --muted: 120 100% 10%;
+  --muted-foreground: 120 100% 30%;
+  
+  --accent: 120 100% 15%;
+  --accent-foreground: 120 100% 50%;
+  
+  --destructive: 0 100% 50%;
+  --destructive-foreground: 0 0% 0%;
+  
+  --sidebar: 0 0% 4%;
+  --sidebar-foreground: 120 100% 40%;
+  --sidebar-border: 120 100% 15%;
+  --sidebar-primary: 120 100% 40%;
+  --sidebar-primary-foreground: 0 0% 0%;
+  --sidebar-accent: 120 100% 15%;
+  --sidebar-accent-foreground: 120 100% 40%;
+  --sidebar-ring: 120 100% 40%;
+  
+  --radius: 0rem; /* sharp corners */
+}
+
+.dark {
+  --background: 0 0% 4%;
+  --foreground: 120 100% 40%;
+  
+  --border: 120 100% 15%;
+  --input: 120 100% 10%;
+  --ring: 120 100% 40%;
+  
+  --card: 0 0% 6%;
+  --card-foreground: 120 100% 40%;
+  --card-border: 120 100% 20%;
+  
+  --popover: 0 0% 4%;
+  --popover-foreground: 120 100% 40%;
+  --popover-border: 120 100% 20%;
+  
+  --primary: 120 100% 40%;
+  --primary-foreground: 0 0% 0%;
+  
+  --secondary: 120 100% 15%;
+  --secondary-foreground: 120 100% 40%;
+  
+  --muted: 120 100% 10%;
+  --muted-foreground: 120 100% 30%;
+  
+  --accent: 120 100% 15%;
+  --accent-foreground: 120 100% 50%;
+  
+  --destructive: 0 100% 50%;
+  --destructive-foreground: 0 0% 0%;
+  
+  --sidebar: 0 0% 4%;
+  --sidebar-foreground: 120 100% 40%;
+  --sidebar-border: 120 100% 15%;
+  --sidebar-primary: 120 100% 40%;
+  --sidebar-primary-foreground: 0 0% 0%;
+  --sidebar-accent: 120 100% 15%;
+  --sidebar-accent-foreground: 120 100% 40%;
+  --sidebar-ring: 120 100% 40%;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply font-mono antialiased bg-background text-foreground;
+  }
+}
+
+.scanline {
+  width: 100%;
+  height: 100px;
+  z-index: 9999;
+  position: absolute;
+  pointer-events: none;
+  background: linear-gradient(0deg, rgba(0, 0, 0, 0) 0%, rgba(0, 255, 0, 0.1) 50%, rgba(0, 0, 0, 0) 100%);
+  opacity: 0.1;
+  animation: scanline 10s linear infinite;
+}
+
+@keyframes scanline {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(100vh);
+  }
+}
+
+.crt::before {
+  content: " ";
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+  z-index: 2;
+  background-size: 100% 2px, 3px 100%;
+  pointer-events: none;
+}

@@ -1,22 +1,28 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Kali Academy cybersecurity learning platform API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: modules
+    description: Learning modules
+  - name: lessons
+    description: Individual lessons
+  - name: progress
+    description: User progress tracking
+  - name: stats
+    description: Stats and dashboard
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +30,124 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /modules:
+    get:
+      operationId: listModules
+      tags: [modules]
+      summary: List all learning modules
+      responses:
+        "200":
+          description: List of modules
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Module"
+
+  /modules/{id}:
+    get:
+      operationId: getModule
+      tags: [modules]
+      summary: Get a module with its lessons
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Module with lessons
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModuleWithLessons"
+        "404":
+          description: Not found
+
+  /lessons/{id}:
+    get:
+      operationId: getLesson
+      tags: [lessons]
+      summary: Get a lesson with full content
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Lesson content
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LessonDetail"
+        "404":
+          description: Not found
+
+  /progress:
+    get:
+      operationId: listProgress
+      tags: [progress]
+      summary: Get all completed lesson IDs
+      responses:
+        "200":
+          description: Progress list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Progress"
+    post:
+      operationId: markComplete
+      tags: [progress]
+      summary: Mark a lesson as complete
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProgressInput"
+      responses:
+        "201":
+          description: Marked complete
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Progress"
+
+  /stats:
+    get:
+      operationId: getStats
+      tags: [stats]
+      summary: Get overall learning stats and dashboard summary
+      responses:
+        "200":
+          description: Stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Stats"
+
+  /feed:
+    get:
+      operationId: getFeed
+      tags: [stats]
+      summary: Get recent activity and tips feed
+      responses:
+        "200":
+          description: Activity feed
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FeedItem"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +158,168 @@ components:
       required:
         - status
 
+    Module:
+      type: object
+      required: [id, title, slug, description, difficulty, category, lessonCount, order]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+        difficulty:
+          type: string
+          enum: [beginner, intermediate, advanced]
+        category:
+          type: string
+        lessonCount:
+          type: integer
+        order:
+          type: integer
+        completedCount:
+          type: integer
+
+    ModuleWithLessons:
+      type: object
+      required: [id, title, slug, description, difficulty, category, order, lessons]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+        difficulty:
+          type: string
+          enum: [beginner, intermediate, advanced]
+        category:
+          type: string
+        order:
+          type: integer
+        lessons:
+          type: array
+          items:
+            $ref: "#/components/schemas/Lesson"
+
+    Lesson:
+      type: object
+      required: [id, moduleId, title, slug, order, duration]
+      properties:
+        id:
+          type: integer
+        moduleId:
+          type: integer
+        title:
+          type: string
+        slug:
+          type: string
+        order:
+          type: integer
+        duration:
+          type: integer
+        completed:
+          type: boolean
+
+    LessonDetail:
+      type: object
+      required: [id, moduleId, title, slug, order, duration, content, commands]
+      properties:
+        id:
+          type: integer
+        moduleId:
+          type: integer
+        title:
+          type: string
+        slug:
+          type: string
+        order:
+          type: integer
+        duration:
+          type: integer
+        content:
+          type: string
+        commands:
+          type: array
+          items:
+            $ref: "#/components/schemas/Command"
+        completed:
+          type: boolean
+        nextLessonId:
+          type: ["integer", "null"]
+        prevLessonId:
+          type: ["integer", "null"]
+
+    Command:
+      type: object
+      required: [command, description, output]
+      properties:
+        command:
+          type: string
+        description:
+          type: string
+        output:
+          type: string
+        dangerous:
+          type: boolean
+
+    Progress:
+      type: object
+      required: [id, lessonId, completedAt]
+      properties:
+        id:
+          type: integer
+        lessonId:
+          type: integer
+        completedAt:
+          type: string
+
+    ProgressInput:
+      type: object
+      required: [lessonId]
+      properties:
+        lessonId:
+          type: integer
+
+    Stats:
+      type: object
+      required: [totalLessons, completedLessons, totalModules, completedModules, totalHours, currentStreak, level, xp]
+      properties:
+        totalLessons:
+          type: integer
+        completedLessons:
+          type: integer
+        totalModules:
+          type: integer
+        completedModules:
+          type: integer
+        totalHours:
+          type: number
+        currentStreak:
+          type: integer
+        level:
+          type: string
+        xp:
+          type: integer
+
+    FeedItem:
+      type: object
+      required: [id, type, title, description, timestamp]
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+          enum: [tip, achievement, lesson_complete, module_complete]
+        title:
+          type: string
+        description:
+          type: string
+        timestamp:
+          type: string
+        lessonId:
+          type: ["integer", "null"]
