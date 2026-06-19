@@ -1,8 +1,9 @@
 import { useGetLesson, useMarkComplete, useListProgress, getListProgressQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { ArrowLeft, ArrowRight, CheckCircle, Terminal, AlertTriangle, ChevronRight } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle, Terminal, AlertTriangle, FlaskConical } from "lucide-react";
 import { Link, useParams } from "wouter";
+import { getScenarioForLesson } from "@/lib/lab-scenarios";
 
 export default function LessonDetail() {
   const { id } = useParams<{ id: string }>();
@@ -17,6 +18,7 @@ export default function LessonDetail() {
 
   const completedIds = new Set((progress ?? []).map((p) => p.lessonId));
   const isDone = completedIds.has(lessonId);
+  const hasLab = !!getScenarioForLesson(lessonId);
 
   const handleMarkComplete = () => {
     if (isDone) return;
@@ -79,6 +81,43 @@ export default function LessonDetail() {
           {lesson.content}
         </div>
       </div>
+
+      {/* Lab CTA */}
+      {hasLab && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="border border-green-500/40 bg-green-950/20 p-6"
+        >
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-start gap-4">
+              <FlaskConical className="w-8 h-8 text-green-400 flex-shrink-0 mt-1" />
+              <div>
+                <h3 className="text-green-400 font-bold text-lg">INTERACTIVE LAB</h3>
+                <p className="text-green-600 text-sm mt-1">
+                  Practice this lesson in a live terminal with a guided simulated environment.
+                  Type real Kali Linux commands, get coached through each step, and earn XP when you complete all objectives.
+                </p>
+              </div>
+            </div>
+            <Link href={`/lab/${lessonId}`}>
+              <div
+                data-testid="button-enter-lab"
+                className="flex items-center gap-2 bg-green-500 text-black px-6 py-3 font-bold text-sm hover:bg-green-400 transition-colors cursor-pointer"
+              >
+                <FlaskConical className="w-4 h-4" />
+                ENTER LAB
+              </div>
+            </Link>
+          </div>
+          {isDone && (
+            <p className="text-green-700 text-xs mt-3 flex items-center gap-1">
+              <CheckCircle className="w-3 h-3" />
+              You already completed this lab — re-enter to practice again.
+            </p>
+          )}
+        </motion.div>
+      )}
 
       {lesson.commands && lesson.commands.length > 0 && (
         <div className="space-y-4">

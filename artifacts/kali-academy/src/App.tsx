@@ -8,22 +8,31 @@ import Modules from "@/pages/modules";
 import ModuleDetail from "@/pages/module-detail";
 import LessonDetail from "@/pages/lesson-detail";
 import TerminalView from "@/pages/terminal";
+import Lab from "@/pages/lab";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
 
 function Router() {
   return (
-    <Layout>
-      <Switch>
-        <Route path="/" component={Dashboard} />
-        <Route path="/modules" component={Modules} />
-        <Route path="/modules/:id" component={ModuleDetail} />
-        <Route path="/lessons/:id" component={LessonDetail} />
-        <Route path="/terminal" component={TerminalView} />
-        <Route component={NotFound} />
-      </Switch>
-    </Layout>
+    <Switch>
+      {/* Lab is full-screen — no sidebar layout */}
+      <Route path="/lab/:id" component={Lab} />
+
+      {/* Everything else uses the sidebar layout */}
+      <Route>
+        <Layout>
+          <Switch>
+            <Route path="/" component={Dashboard} />
+            <Route path="/modules" component={Modules} />
+            <Route path="/modules/:id" component={ModuleDetail} />
+            <Route path="/lessons/:id" component={LessonDetail} />
+            <Route path="/terminal" component={TerminalView} />
+            <Route component={NotFound} />
+          </Switch>
+        </Layout>
+      </Route>
+    </Switch>
   );
 }
 
