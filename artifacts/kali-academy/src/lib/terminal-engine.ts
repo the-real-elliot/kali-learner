@@ -1,6 +1,7 @@
 import type { OutputLine, LabEnv } from "./lab-scenarios";
 
 function out(text: string): OutputLine { return { text, type: "out" }; }
+function ok(text: string): OutputLine { return { text, type: "success" }; }
 function err(text: string): OutputLine { return { text, type: "err" }; }
 function info(text: string): OutputLine { return { text, type: "info" }; }
 function sys(text: string): OutputLine { return { text, type: "system" }; }
@@ -26,26 +27,29 @@ export function handleGeneralCommand(input: string, env: LabEnv): OutputLine[] |
 
     case "help": case "?":
       return [
-        sys("┌─ KALI ACADEMY LAB HELP ──────────────────────────────────────┐"),
-        sys("│ General Commands:                                             │"),
-        sys("│  help | ls | pwd | whoami | id | uname -a | env | ps aux    │"),
-        sys("│  cat <file> | echo <text> | clear | history                 │"),
-        sys("│                                                               │"),
-        sys("│ Network & Recon:                                              │"),
-        sys("│  nmap | whois | theHarvester | subfinder | dnsrecon         │"),
-        sys("│  dnsenum | netdiscover | arp-scan | curl | wget             │"),
-        sys("│                                                               │"),
-        sys("│ Web & Exploitation:                                           │"),
-        sys("│  nikto | gobuster | sqlmap | searchsploit | msfconsole      │"),
-        sys("│                                                               │"),
-        sys("│ Password:                                                     │"),
-        sys("│  hashcat | john | hydra | hash-identifier | hashid          │"),
-        sys("│                                                               │"),
-        sys("│ Post-Exploitation:                                            │"),
-        sys("│  sudo -l | find | linpeas | nc | cat /etc/passwd            │"),
-        sys("│                                                               │"),
-        sys("│ TIP: Look at the MISSION PANEL on the left for your tasks.  │"),
-        sys("└──────────────────────────────────────────────────────────────┘"),
+        sys("┌─ KALI ACADEMY LAB HELP ───────────────────────────────────────┐"),
+        sys("│ General Commands:                                              │"),
+        sys("│  help | ls | pwd | whoami | id | uname -a | env | history    │"),
+        sys("│  cat <file> | echo <text> | clear | file | strings | binwalk │"),
+        sys("│                                                                │"),
+        sys("│ Network & Recon:                                               │"),
+        sys("│  nmap | whois | theHarvester | subfinder | dnsrecon | shodan  │"),
+        sys("│  dnsenum | netdiscover | arp-scan | curl | wget | ping        │"),
+        sys("│  recon-ng | amass | cewl | exiftool | metagoofil              │"),
+        sys("│                                                                │"),
+        sys("│ Web & Exploitation:                                            │"),
+        sys("│  nikto | gobuster | sqlmap | msfconsole | msfvenom            │"),
+        sys("│  searchsploit | git-dumper | redis-cli | crackmapexec         │"),
+        sys("│                                                                │"),
+        sys("│ Password & Brute Force:                                       │"),
+        sys("│  hashcat | john | hydra | crunch | medusa                    │"),
+        sys("│                                                                │"),
+        sys("│ Post-Exploitation:                                             │"),
+        sys("│  sudo -l | find | linpeas | nc | ssh | enum4linux             │"),
+        sys("│  python3 | gdb | ghidra | binwalk                            │"),
+        sys("│                                                                │"),
+        sys("│ TIP: Look at the MISSION PANEL on the left for your tasks.   │"),
+        sys("└───────────────────────────────────────────────────────────────┘"),
       ];
 
     case "whoami":
@@ -237,6 +241,177 @@ OpenSSH < 7.7 - Username Enumeration       | linux/remote/45233.py
 --------------------------------------------------------------`),
       ];
 
+    case "file":
+      if (!args.length) return [err("file: missing operand")];
+      return [out(`${args[0]}: ELF 64-bit LSB executable, x86-64, dynamically linked, not stripped`)];
+
+    case "strings":
+      if (!args.length) return [err("strings: missing argument")];
+      return [
+        ...lines(`Extracting strings from ${args[0]}...
+
+/lib/x86_64-linux-gnu/libc.so.6
+GLIBC_2.2.5
+Enter password:
+Access Granted!
+Wrong password!
+Tr0ub4dor&3
+http://c2.example.com/check
+/tmp/.hidden_cache
+admin123`),
+        blank(),
+        info("[*] Tip: pipe through grep for targeted extraction: strings binary | grep -i pass"),
+      ];
+
+    case "binwalk":
+      if (!args.length) return [err("binwalk: must specify file(s)")];
+      return [
+        ...lines(`DECIMAL       HEXADECIMAL     DESCRIPTION
+--------------------------------------------------------------------------------
+0             0x0             ELF, 64-bit LSB executable, AMD x86-64
+51200         0xC800          Zlib compressed data
+102400        0x19000         LZMA compressed data
+204800        0x32000         Squashfs filesystem, little endian, version 4.0`),
+        blank(),
+        info("[*] Use -e flag to extract: binwalk -e " + (args[0] ?? "target")),
+      ];
+
+    case "exiftool":
+      if (!args.length) return [err("exiftool: need to specify a file")];
+      return [
+        ...lines(`ExifTool Version Number         : 12.67
+File Name                       : ${args[0]}
+Author                          : John Crawford
+Creator                         : Microsoft Word 2016
+Last Modified By                : sarah.chen
+Company                         : MegaCorp Industries
+Create Date                     : 2023-11-14 09:22:18
+GPS Latitude                    : 51 deg 30' 26.39" N
+GPS Longitude                   : 0 deg  7' 39.87" W`),
+        blank(),
+        ok("[+] Author and GPS coordinates extracted from metadata!"),
+      ];
+
+    case "redis-cli":
+      if (args.includes("KEYS") || args.includes("keys")) {
+        return [
+          out("1) \"admin_password\""),
+          out("2) \"session:a3f9d2\""),
+          out("3) \"api_token:webhook\""),
+          out("4) \"user:j.crawford\""),
+        ];
+      }
+      if (args.includes("PING") || args.includes("ping")) {
+        return [out("+PONG"), blank(), ok("[+] Redis responds — no auth required!")];
+      }
+      if (args.includes("CONFIG") || args.includes("config")) {
+        return [out("+OK")];
+      }
+      return null; // pass to scenario
+
+    case "cewl":
+      if (!args.length) return [err("cewl: target URL required")];
+      return [
+        sys("CeWL 6.1 — Custom Word List Generator"),
+        info(`[*] Spidering ${args[0]}...`),
+        blank(),
+        ...lines(`Pages spidered: 23
+Unique words: 412
+Words >= 6 chars: 187
+
+Sample words: MegaCorp, Industries, Sentinel, Phoenix, Manchester, Security`),
+        blank(),
+        ok("[+] Wordlist generated! Use with: hydra -l user -P megacorp-words.txt ssh://target"),
+      ];
+
+    case "hydra":
+      return null; // always pass to scenario
+
+    case "crackmapexec":
+      if (raw.includes("--pass-pol")) {
+        return [
+          ...lines(`SMB  ${env.targetIp}  445  DC01  [*] Windows Server 2019
+SMB  ${env.targetIp}  445  DC01  [+] megacorp.local
+
+Password Info for Domain: MEGACORP
+  Minimum password length: 8
+  Account Lockout Threshold: 5 attempts
+  Account Lockout Window: 30 minutes
+
+[!] SAFE to spray: try at most 4 passwords per account`),
+        ];
+      }
+      return null; // pass to scenario
+
+    case "crunch":
+      if (args.length < 2) return [err("crunch: min/max length required")];
+      return [
+        info(`Crunch will generate ${args[2] ?? "custom"} wordlist...`),
+        out(`Length range: ${args[0]}-${args[1]} chars`),
+        out("Generating..."),
+        blank(),
+        out("MegaCorp00aa"),
+        out("MegaCorp00ab"),
+        out("MegaCorp00ac"),
+        blank(),
+        out("Total passwords: 6,760,000"),
+        ok("[+] Wordlist complete. Pipe to hydra or save with -o flag."),
+      ];
+
+    case "recon-ng":
+      return [
+        sys("Recon-ng v5.1.2 — Full-featured web reconnaissance framework"),
+        blank(),
+        out("    _/_/_/    _/_/_/_/    _/_/_/    _/_/_/  "),
+        out("   _/    _/  _/        _/        _/    _/  "),
+        out("  _/_/_/    _/_/_/    _/        _/    _/  "),
+        blank(),
+        info("[recon-ng][default] > "),
+        blank(),
+        info("[*] Type: workspaces create <name> to start a new engagement"),
+        info("[*] Type: marketplace search to find modules"),
+      ];
+
+    case "amass":
+      return null; // pass to scenario
+
+    case "msfvenom":
+      return null; // always pass to scenario
+
+    case "git-dumper":
+      return null; // pass to scenario
+
+    case "enum4linux":
+    case "enum4linux-ng":
+      return null; // pass to scenario
+
+    case "ghidra":
+      return [
+        sys("Ghidra 10.4 — Software Reverse Engineering Framework"),
+        blank(),
+        info("[*] Starting Ghidra GUI..."),
+        info("[*] For headless analysis: ghidraRun --headless /tmp/project name -import ./binary"),
+        blank(),
+        out("GUI mode requires display. In this lab, use the decompiler output shown in lesson examples."),
+      ];
+
+    case "gdb":
+      return [
+        sys("GNU gdb (Ubuntu) 12.1"),
+        info("[*] For pwndbg enhanced output: run in real Kali Linux"),
+        blank(),
+        ...lines(`(gdb) break main
+Breakpoint 1 at 0x401180
+(gdb) run
+Starting program...
+Breakpoint 1, 0x0000000000401180 in main ()
+(gdb) info registers rax rbx rsp rbp
+rax  0x0  0
+rbx  0x0  0
+rsp  0x7fffffffe4b0  0x7fffffffe4b0
+rbp  0x7fffffffe4c0  0x7fffffffe4c0`),
+      ];
+
     case "ssh":
       return [
         info(`Attempting SSH to ${args[args.length - 1] ?? env.targetIp}...`),
@@ -284,6 +459,11 @@ OpenSSH < 7.7 - Username Enumeration       | linux/remote/45233.py
         "nmap", "nikto", "gobuster", "sqlmap", "hashcat", "john", "hydra",
         "msfconsole", "shodan", "hash-identifier", "hashid", "linpeas",
         "enum4linux", "netdiscover", "arp-scan", "smbclient", "rpcclient",
+        "crackmapexec", "msfvenom", "git-dumper", "amass", "recon-ng",
+        "kerbrute", "medusa", "wfuzz", "dirb", "dirbuster", "ffuf",
+        "setoolkit", "gophish", "objdump", "readelf", "ltrace", "strace",
+        "radare2", "r2", "pwntools", "linux2username", "metagoofil",
+        "certutil", "impacket", "psexec", "wmiexec", "smbexec",
       ];
       if (scenarioCmds.some(sc => cmd.startsWith(sc))) {
         return null; // pass to scenario engine

