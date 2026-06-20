@@ -18,7 +18,7 @@ app.use("/api", router);
 
 const staticPath = path.join(__dirname, "../../kali-academy/dist/public");
 app.use(express.static(staticPath));
-app.get("*", (_req, res) => {
+app.get("/{*path}", (_req, res) => {
   res.sendFile(path.join(staticPath, "index.html"));
 });
 
